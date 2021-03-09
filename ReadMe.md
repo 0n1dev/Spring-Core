@@ -134,3 +134,118 @@
 -> 지금은 스프링 없이 순수한 자바로만 개발을 목표로 잡는다.
 
 ![현재 프로젝트 모습](./img/purejava.png)
+
+# 스프링 핵심 원리 이해2 - 객체 지향 원리 적용
+---
+
+## 새로운 할인 정책 개발
+---
+
+### 기존 코드의 문제점
+---
+
+> 할인 정책을 변경하려면 클라이언트인 `OrderServiceImpl`의 코드를 수정해야 한다. (개방-폐쇄 원칙 벗어남)
+
+```java
+public class OrderServiceImpl implements OrderService {
+
+    private final MemberRepository memberRepository = new MemoryMemberRepository();
+//    private final DiscountPolicy discountPolicy = new FixDiscountPolicy();
+    private final DiscountPolicy discountPolicy = new RateDiscountPolicy();
+
+}
+```
+
+- 우리는 역할과 구현을 충실하게 분리했다. -> O
+- 다형성도 활용하고, 인터페이스와 구현 객체를 분리했다. -> O
+- OCP, DIP 같은 객체지향 설계 원칙을 충실히 준수했다.
+    - 그렇게 보이지만 아니다.
+    - DIP : 추상 인터페이스와 구현 클래스 모두 의존하고 있다. -> 위반하고 있다.
+    - OCP : DIP를 위반하기 때문에 FixDiscountPolicy에서 RateDiscountPolicy로 바뀌는 순간 OrderServiceImpl의 코드도 변경해야된다. -> 위반하고 있다.
+
+### 문제점 해결 방법 - 1
+---
+
+```java
+public class OrderServiceImpl implements OrderService {
+
+    private final MemberRepository memberRepository = new MemoryMemberRepository();
+//    private final DiscountPolicy discountPolicy = new FixDiscountPolicy();
+//    private final DiscountPolicy discountPolicy = new RateDiscountPolicy();
+
+    private DiscountPolicy discountPolicy;
+
+}
+```
+
+> DIP는 지켰지만 구현 클래스가 없어서 동작하지 않음.
+
+누군가 클라이언트인 `OrderServiceImpl`에 DiscountPolicy의 구현 객체를 대신 생성하고 주입해야 된다.
+
+### 문제점 해결방법 - 2 (관심사의 분리)
+---
+
+AppConfig 클래스를 만들어 생성자를 통해 주입.
+
+```java
+package hello.core;
+
+import hello.core.discount.FixDiscountPolicy;
+import hello.core.member.MemberService;
+import hello.core.member.MemberServiceImpl;
+import hello.core.member.MemoryMemberRepository;
+import hello.core.order.OrderService;
+import hello.core.order.OrderServiceImpl;
+
+public class AppConfig {
+
+    public MemberService memberService() {
+        return new MemberServiceImpl(new MemoryMemberRepository());
+    }
+
+    public OrderService orderService() {
+        return new OrderServiceImpl(new MemoryMemberRepository(), new FixDiscountPolicy());
+    }
+}
+```
+
+- AppConfig는 애플리케이션의 실제 동작에 필요한 **구현 객체를 생성** 해준다.
+- AppConfig는 생성한 객체 인스턴스의 참조(레퍼런스)를 **생성자를 통해서 주입** 해준다.
+
+#### 리팩터링
+---
+
+```java
+package hello.core;
+
+import hello.core.discount.DiscountPolicy;
+import hello.core.discount.FixDiscountPolicy;
+import hello.core.member.MemberService;
+import hello.core.member.MemberServiceImpl;
+import hello.core.member.MemoryMemberRepository;
+import hello.core.order.OrderService;
+import hello.core.order.OrderServiceImpl;
+
+public class AppConfig {
+
+    public MemberService memberService() {
+        return new MemberServiceImpl(memberRepository());
+    }
+
+    private MemoryMemberRepository memberRepository() {
+        return new MemoryMemberRepository();
+    }
+
+    public OrderService orderService() {
+        return new OrderServiceImpl(memberRepository(), discountPolicy());
+    }
+    
+    public DiscountPolicy discountPolicy() {
+        return new FixDiscountPolicy();
+    }
+}
+```
+
+- 중복으로 사용하는 부분을 변경
+- 역할에 따른 구현이 잘보임
+
