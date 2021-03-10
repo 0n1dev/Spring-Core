@@ -249,3 +249,207 @@ public class AppConfig {
 - 중복으로 사용하는 부분을 변경
 - 역할에 따른 구현이 잘보임
 
+## 새로운 구조와 할인 정책 적용
+---
+
+```java
+package hello.core;
+
+import hello.core.discount.DiscountPolicy;
+import hello.core.discount.FixDiscountPolicy;
+import hello.core.discount.RateDiscountPolicy;
+import hello.core.member.MemberService;
+import hello.core.member.MemberServiceImpl;
+import hello.core.member.MemoryMemberRepository;
+import hello.core.order.OrderService;
+import hello.core.order.OrderServiceImpl;
+
+public class AppConfig {
+
+    public MemberService memberService() {
+        return new MemberServiceImpl(memberRepository());
+    }
+
+    private MemoryMemberRepository memberRepository() {
+        return new MemoryMemberRepository();
+    }
+
+    public OrderService orderService() {
+        return new OrderServiceImpl(memberRepository(), discountPolicy());
+    }
+
+    public DiscountPolicy discountPolicy() {
+        return new RateDiscountPolicy();
+    }
+}
+```
+
+> AppConfig의 할인 정책만 변경해주면 된다.
+
+## IoC, DI, 그리고 컨테이너
+---
+
+### 제어의 역전 IoC(Inversion of Control)
+---
+
+- 기존 프로그램은 클라이언트 구현 객체가 스스로 필요한 서버 구현 객체를 생성하고, 실행했다.
+- AppConfig가 등장 이후에 구현 객체는 자신의 로직을 실행하는 역할만 담당, 프로그램의 제어 흐름은 이제 AppConfig가 가져간다.
+- 프로그램에 대한 제어 흐름에 대한 권한은 모두 AppConfig가 가지고 있다. 심지어 OrderServiceImpl도 AppConfig가 생성한다. AppConfig는 OrderServiceImpl이 아닌 OrderService 인터페이스의 다른 구현 객체를 생성하고 실행할 수도 있다.
+- 이렇듯 프로그램의 제어 흐름을 직접 제어하는 것이 아니라 외부에서 관리하는 것을 제어의 역전(IoC)이라 한다.
+
+### 프레임워크 vs 라이브러리
+---
+
+- 프레임워크가 내가 작성한 코드를 제어하고, 대신 실행하면 프레임워크
+- 내가 작성한 코드가 직접 제어의 흐름을 담당하면 그것은 프레임워크가 아니라 라이브러리다.
+
+### 의존관계 주입 DI(Dependency Injection)
+---
+- OrderServiceImpl은 DiscountPolicy 인터페이스에 의존한다. 실제 어떤 구현 객체가 사용될지는 모른다.
+- 의존관계는 **정적인 클래스 의존 관계와, 실행 시점에 결정되는 동적인 객체(인스턴스) 의존 관계** 둘을 분리해서 생각해야 한다.
+
+## 스프링으로 전환하기
+---
+
+- ApplicationContext 스프링 컨테이너라 한다.
+- 기존에는 개발자가 AppConfig를 사용해서 직접 객체를 생성하고 DI를 했지만 이제부터는 스프링 컨테이너를 통해서 사용
+- 스프링 컨테이너는 @Configuration이 붙은 AppConfig를 설정(구성)정보를 사용한다. 여기서 @Bean 이라 적힌 메서드를 모두 호출해서 반환된 객체를 스프링 컨테이너에 등록한다. 이렇게 스프링 컨테이너에 등록된 객체를 스프링 빈이라 한다.
+- 기존에는 개발자가 직접 필요한 객체를 AppConfig를 사용해서 조회 했지만 스프링 컨테이너를 통해서 필요한 스프링 빈을 찾아야 한다(appContext.getBean() 메서드를 사용해서 찾을 수 있다.)
+
+```java
+        ApplicationContext appContext = new AnnotationConfigApplicationContext(AppConfig.class);
+        MemberService memberService = appContext.getBean("memberService", MemberService.class);
+        OrderService orderService = appContext.getBean("orderService", OrderService.class);
+```
+
+# 스프링 컨테이너와 스프링 빈
+---
+
+## 스프링 컨테이너 생성
+---
+
+```java
+        ApplicationContext appContext = new AnnotationConfigApplicationContext(AppConfig.class);
+```
+
+- ApplicationContext 스프링 컨테이너라 한다.
+- ApplicationContext 인터페이스이다.
+- 스프링 컨테이너는 XML 기반 or 애노테이션 기반의 자바 설정 클래스로 만들 수 있다.
+- 직전에 AppConfig를 사용했던 방식이 애노테이션 기반의 자바 설정 클래스로 스프링 컨테이너를 만든것이다.
+
+> 정확히는 스프링 컨테이너를 부를 때 BeanFactory와 ApplicationContext로 구분해서 이야기한다. BeanFactory를 직접 사용하는 경우는 거의 없으므로 일반적으로 ApplicationContext를 스프링 컨테이너라 한다.
+
+## 컨테이너에 등록된 모든 빈 조회
+---
+
+```java
+package hello.core.beanfind;
+
+import hello.core.AppConfig;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.config.BeanDefinition;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+
+public class ApplicationContextInfoTest {
+
+    AnnotationConfigApplicationContext ac = new AnnotationConfigApplicationContext(AppConfig.class);
+
+    @Test
+    @DisplayName("모든 빈 출력하기")
+    void findAllBean() {
+        String[] beanDefinitionNames = ac.getBeanDefinitionNames();
+
+        for (String beanDefinitionName : beanDefinitionNames) {
+            Object bean = ac.getBean(beanDefinitionName);
+            System.out.println("name = " + beanDefinitionName + " bean = " + bean);
+        }
+    }
+
+    @Test
+    @DisplayName("애플리케이션 빈 출력하기")
+    void findApplicationBean() {
+        String[] beanDefinitionNames = ac.getBeanDefinitionNames();
+
+        for (String beanDefinitionName : beanDefinitionNames) {
+            BeanDefinition beanDefinition = ac.getBeanDefinition(beanDefinitionName);
+
+            if (beanDefinition.getRole() == BeanDefinition.ROLE_APPLICATION) {
+                Object bean = ac.getBean(beanDefinitionName);
+                System.out.println("name = " + beanDefinitionName + " bean = " + bean);
+            }
+        }
+    }
+}
+```
+
+- 모든 빈 출력하기
+    - ac.getBeanDefinitionNames() 스프링에 등록된 모든 빈 이름을 조회
+    - ac.getBean() 빈 이름으로 빈 객체(인스턴스)를 조회
+- 애플리케이션 빈 출력하기
+    - 스프링 내부에서 사용하는 빈 제외
+    - getRole()을 통해 구분
+        - ROLE_APPLICATION : 사용자가 정의한 빈
+        - ROLE_INFRASTRUCTURE : 스프링 내부에서 사용하는 빈
+
+## 스프링 빈 조회 - 기본
+---
+
+- ac.getBean(빈이름, 타입)
+- ac.getBean(타입)
+- 조회 대상 스프링 빈이 없으면 예외 발생
+    - NoSuchBeanDefinitionException: No bean named 'xxx' available
+
+### 테스트 코드
+---
+
+```java
+package hello.core.beanfind;
+
+import hello.core.AppConfig;
+import hello.core.member.MemberService;
+import hello.core.member.MemberServiceImpl;
+import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.NoSuchBeanDefinitionException;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+public class ApplicationContextBasicTest {
+
+    AnnotationConfigApplicationContext ac = new AnnotationConfigApplicationContext(AppConfig.class);
+
+    @Test
+    @DisplayName("빈 이름으로 조회")
+    void findBeanByName() {
+        MemberService memberService = ac.getBean("memberService", MemberService.class);
+        assertThat(memberService).isInstanceOf(MemberServiceImpl.class);
+    }
+
+    @Test
+    @DisplayName("이름 없이 타입으로만 조회")
+    void findBeanByType() {
+        MemberService memberService = ac.getBean(MemberService.class);
+        assertThat(memberService).isInstanceOf(MemberServiceImpl.class);
+    }
+
+    // 역할에 의존해야하는데 구현에 의존한 코드
+    @Test
+    @DisplayName("구체 타입으로 조회")
+    void findBeanByName2() {
+        MemberService memberService = ac.getBean("memberService", MemberServiceImpl.class);
+        assertThat(memberService).isInstanceOf(MemberServiceImpl.class);
+    }
+
+    @Test
+    @DisplayName("빈 이름으로 조회 X")
+    void findBeanByNameX() {
+//        MemberService xxxx = ac.getBean("xxxx", MemberService.class);
+        assertThrows(NoSuchBeanDefinitionException.class,
+                () -> ac.getBean("xxxx", MemberService.class));
+    }
+}
+```
