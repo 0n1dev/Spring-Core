@@ -453,3 +453,113 @@ public class ApplicationContextBasicTest {
     }
 }
 ```
+
+## 스프링 빈 조회 - 동일한 타입이 둘 이상
+---
+
+### 테스트 코드 - 이름을 지정해준다
+---
+
+```java
+package hello.core.beanfind;
+
+import hello.core.AppConfig;
+import hello.core.member.MemberRepository;
+import hello.core.member.MemoryMemberRepository;
+import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.NoUniqueBeanDefinitionException;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+public class ApplicationContextSameBeanFindTest {
+
+    AnnotationConfigApplicationContext ac = new AnnotationConfigApplicationContext(SameBeanConfig.class);
+
+    @Test
+    @DisplayName("타입으로 조회시 같은 타입이 둘 이상 있으면, 중복 오류가 발생한다")
+    void findBeanByTypeDuplicate() {
+        assertThrows(NoUniqueBeanDefinitionException.class,
+                () -> ac.getBean(MemberRepository.class));
+    }
+
+    @Test
+    @DisplayName("타입으로 조회시 같은 타입이 둘 이상 있으면, 이름으로 지정하면된다.")
+    void findBeanByName() {
+        MemberRepository bean = ac.getBean("memberRepository1", MemberRepository.class);
+        Assertions.assertThat(bean).isInstanceOf(MemberRepository.class);
+    }
+
+    @Test
+    @DisplayName("특정 타입을 모두 조회하기")
+    void findAllBeanByType() {
+        Map<String, MemberRepository> beansOfType = ac.getBeansOfType(MemberRepository.class);
+        for (String key : beansOfType.keySet()) {
+            System.out.println("key = " + key + " value = " + beansOfType.get(key));
+        }
+
+        System.out.println("beansOfType = " + beansOfType);
+        Assertions.assertThat(beansOfType.size()).isEqualTo(2);
+    }
+
+    @Configuration
+    static class SameBeanConfig {
+
+        @Bean
+        public MemberRepository memberRepository1() {
+            return new MemoryMemberRepository();
+        }
+
+        @Bean
+        public MemberRepository memberRepository2() {
+            return new MemoryMemberRepository();
+        }
+    }
+}
+```
+
+## 스프링 빈 조회 - 상속관계
+---
+
+- 부모 타입으로 조회하면, 자식 타입도 함께 조회한다.
+- 그래서 모든 자바 객체의 최고 부모인 `Object` 타입으로 조회하면, 모든 스프링 빈을 조회한다.
+
+## BeanFactory와 ApplicationContext
+---
+
+> beanFactory와 ApplicationContext에 대해서 알아보자
+
+- BeanFactory
+    - 스프링 컨테이너의 최상위 인터페이스
+    - 스프링 빈을 관리하고 조회하는 역할을 담당
+    - 대표적으로 getBean() 제공
+- ApplicationContext
+    - BeanFactory 기능을 모두 상속받아서 제공한다.
+    - 빈을 관리하고 검색하는 기능을 BeanFactory가 제공해주는데, 그러면 둘의 차이가 뭘까?
+    - 애플리케이션을 개발할 때는 빈은 관리하고 조회하는 기능은 물론이고, 수 많은 부가기능이 필요하다.
+
+**정리**
+
+- ApplicationContext는 BeanFactory의 기능을 상속
+- ApplicationContext는 빈 관리기능 + 편리한 부가 기능을 제공
+- BeanFactory를 직접 사용할 일은 거의 없다. 부가기능이 포함된 ApplicationContext를 사용한다.
+- BeanFactory나 ApplicationContext를 스프링 컨테이너라 한다.
+
+## 스프링 빈 설정 메타 정보 - BeanDefinition
+---
+
+- 스프링이 다양한 설정 형식을 지원 가능하게 해주는 중심에 `BeanDefinition` 이라는 추상화가 있다.
+- 역할과 구현을 개념적으로 나눈 것
+    - XML을 읽어서 BeanDefinition을 만든다.
+    - 자바 코드를 읽어서 BeanDefinition을 만든다.
+    - 스프링 컨테이너는 자바 코드인지, XML인지 몰라도 된다.
+- BeanDefinition을 빈 설정 메타정보라 한다.
+    - @Bean, <bean> 당 각각 하나씩 메타 정보가 생성된다.
+- 스프링 컨테이너는 이 메타정보를 기반으로 스프링 빈을 생성한다.
+
