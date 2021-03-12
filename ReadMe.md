@@ -550,3 +550,16 @@ public class ApplicationContextSameBeanFindTest {
 - ApplicationContext는 빈 관리기능 + 편리한 부가 기능을 제공
 - BeanFactory를 직접 사용할 일은 거의 없다. 부가기능이 포함된 ApplicationContext를 사용한다.
 - BeanFactory나 ApplicationContext를 스프링 컨테이너라 한다.
+
+## 스프링 빈 설정 메타 정보 - BeanDefinition
+---
+
+- 스프링이 다양한 설정 형식을 지원 가능하게 해주는 중심에 `BeanDefinition` 이라는 추상화가 있다.
+- 역할과 구현을 개념적으로 나눈 것
+    - XML을 읽어서 BeanDefinition을 만든다.
+    - 자바 코드를 읽어서 BeanDefinition을 만든다.
+    - 스프링 컨테이너는 자바 코드인지, XML인지 몰라도 된다.
+- BeanDefinition을 빈 설정 메타정보라 한다.
+    - @Bean, <bean> 당 각각 하나씩 메타 정보가 생성된다.
+- 스프링 컨테이너는 이 메타정보를 기반으로 스프링 빈을 생성한다.
+
