@@ -898,8 +898,32 @@ public class AutoAppConfig {
 
 > 보통 실무에서는 Configuration을 제외시키지는 않지만 기존 예외 코드를 유지하기 위해서 제외시킴
 
-### Annotation
+#### Annotation
 ---
 
 - @Component : 스프링 컨테이너에서 컴포넌트 스캔시 자동으로 빈 등록
 - @Autowired : 객체 생성 시점 스프링 컨테이너에서 해당 스프링빈을 찾아서 주입
+
+### 탐색 위치와 기본 스캔 대상
+---
+
+```java
+package hello.core;
+
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.FilterType;
+
+@Configuration
+@ComponentScan(
+        basePackages = "hello.core.member", // 특정 대상만 컴포넌트 스캔이 대상이 되도록 지정
+        excludeFilters = @ComponentScan.Filter(type = FilterType.ANNOTATION, classes = Configuration.class) // Configuration도 @Component 애노테이션이 붙어있기 때문에 제외 시켜야 한다.
+) // 자동으로 컴포넌트 애노테이션이 붙은 클래스를 찾아서 자동으로 스프링 빈으로 등록
+public class AutoAppConfig {
+}
+```
+
+- basePackages : 탐색할 패키지의 시작 위치를 지정, 하위 패키지를 모두 탐색
+    - 여러 시작 위치 지정 가능
+- basePackageClasses : 지정한 클래스의 패키지를 탐색 시작 위치로 지정
+- 디폴트는 @ComponentScan 애노테이션이 붙은 설정 정보 클래스의 패키지가 시작 위치가 된다.
